@@ -1,0 +1,66 @@
+// SPDX-FileCopyrightText: 2023 Friedrich-Alexander-Universitat Erlangen-Nurnberg
+//
+// SPDX-License-Identifier: AGPL-3.0-only
+
+// This pipeline extracts data related to airports from a CSV file on the web 
+// and loads it into a SQLite database. Each block in the pipeline represents
+// a specific operation or transformation applied to the data.
+pipeline airportsPipeline {
+
+    airportsExtractor -> airportsTextFileInterpreter;
+    airportsTextFileInterpreter
+        -> airportsCSVInterpreter 
+        -> NameHeaderWriter
+        -> airportsTableInterpreter
+        -> airportsLoader;
+
+
+    // This block extracts data from the specified URL using HTTP.
+    block airportsExtractor oftype HttpExtractor {
+
+        // Here, we specify the URL where the file shall be downloaded from.
+        url: "https://opendata.rhein-kreis-neuss.de/api/explore/v2.1/catalog/datasets/rhein-kreis-neuss-flughafen-weltweit/exports/csv?lang=en&timezone=Europe%2FBerlin&use_labels=true&delimiter=%3B";
+    }
+
+    // This block interprets the downloaded text file.
+    block airportsTextFileInterpreter oftype TextFileInterpreter { }
+
+    // It handles parsing the file based on the specified delimiter.
+    block airportsCSVInterpreter oftype CSVInterpreter {
+    delimiter: ";";
+    }
+
+    // This block writes header names to the specified range in the CSV file.
+    block NameHeaderWriter oftype CellWriter {
+        // Range where header names will be written.
+        at: range A1:M1;
+        // Header names to be written.
+        write: ["Lfd. Nummer","Name des Flughafens","Ort","Land","IATA","ICAO","Latitude","Longitude","Altitude","Zeitzone","DST","Zeitzonen-Datenbank","geo_punkt"];
+    }
+        // This block interprets the CSV data as a table.
+        block airportsTableInterpreter oftype TableInterpreter {
+        header: true;
+        // Defines the data type for each column in the table.
+        columns: [
+            "Lfd. Nummer" oftype integer,
+            "Name des Flughafens" oftype text,
+            "Ort" oftype text,
+            "Land" oftype text,
+            "IATA" oftype text,
+            "ICAO" oftype text,
+            "Latitude" oftype decimal,
+            "Longitude" oftype decimal,
+            "Altitude" oftype integer,
+            "Zeitzone" oftype decimal,
+            "DST" oftype text,
+            "Zeitzonen-Datenbank" oftype text,
+            "geo_punkt" oftype text,
+        ];
+    }
+        // This block loads the interpreted table data into a SQLite database.
+        block airportsLoader oftype SQLiteLoader {
+        table: "airports";
+        file: "./airports.sqlite";
+    }
+
+}
