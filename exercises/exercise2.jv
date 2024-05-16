@@ -1,0 +1,50 @@
+// SPDX-FileCopyrightText: 2023 Friedrich-Alexander-Universitat Erlangen-Nurnberg
+//
+// SPDX-License-Identifier: AGPL-3.0-only
+
+pipeline TreesPipeline {
+
+    
+    TreesExtractor -> TreesTextFileInterpreter;
+
+    TreesTextFileInterpreter
+    -> TreesCSVInterpreter 
+    -> TreesTableInterpreter
+    -> TreesLoader;
+
+    // Here, we specify the URL where the file shall be downloaded from.
+    block TreesExtractor oftype HttpExtractor {
+        url: "https://opendata.rhein-kreis-neuss.de/api/v2/catalog/datasets/stadt-neuss-herbstpflanzung-2023/exports/csv";
+    }
+
+    block TreesTextFileInterpreter oftype TextFileInterpreter { }
+// This block interprets the CSV data as a table.
+    block TreesCSVInterpreter oftype CSVInterpreter {
+        delimiter: ";";
+    }
+// Defines the data type for each column in the table.
+    block TreesTableInterpreter oftype TableInterpreter {
+        header: true;
+        columns: [
+            "lfd_nr" oftype integer,
+            "stadtteil" oftype FurthValues,
+            "standort" oftype text,
+            "baumart_botanisch" oftype text,
+            "id" oftype text,
+            "baumfamilie" oftype text ];
+    }
+// constraints
+    valuetype FurthValues oftype text {
+    constraints: [
+        OnlyFurthValues 
+    ];
+}
+constraint OnlyFurthValues on text:
+    value matches /^Furth-/;
+
+    block TreesLoader oftype SQLiteLoader {
+        table: "trees";
+        file: "./trees.sqlite";
+    }
+
+}
